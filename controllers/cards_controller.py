@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 from init import db
 from models.card import Card, CardSchema
-# from models.comment import Comment, CommentSchema
+from models.comment import Comment, CommentSchema
 from controllers.auth_controller import authorize
 from datetime import date
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -51,12 +51,12 @@ def create_comment(card_id):
         comment = Comment(
             message = request.json['message'],
             user_id = get_jwt_identity(),
-            card_id = card_id,
+            card = card,
             date = date.today()
         )
         db.session.add(comment)
         db.session.commit()
-        return CommentSchema().dump(comment)
+        return CommentSchema().dump(comment), 201
     else:
         return {'Error': f'Card not found with id {id}'}, 404
     
