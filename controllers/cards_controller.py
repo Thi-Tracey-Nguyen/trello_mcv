@@ -1,7 +1,10 @@
 from flask import Blueprint, request
 from init import db
 from models.card import Card, CardSchema
+# from models.comment import Comment, CommentSchema
+from controllers.auth_controller import authorize
 from datetime import date
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 cards_bp = Blueprint('cards', __name__, url_prefix = '/cards')
 
@@ -27,6 +30,7 @@ def get_one_card(id):
         return {'Error': f'Card not found with id {id}'}, 404
 
 @cards_bp.route('/<int:id>/', methods = ['PUT', 'PATCH'])
+@jwt_required()
 def update_one_card(id):
     stmt = db.select(Card).filter_by(id = id)
     card = db.session.scalar(stmt)
@@ -38,8 +42,30 @@ def update_one_card(id):
         db.session.commit()
         return CardSchema().dump(card)
 
+@cards_bp.route('/<int:card_id>/comments', methods = ['POST'])
+@jwt_required()
+def create_comment(card_id):
+    stmt = db.select(Card).filter_by(id = card_id)
+    card = db.session.scalar(stmt)
+    if card:
+        comment = Comment(
+            message = request.json['message'],
+            user_id = get_jwt_identity(),
+            card_id = card_id,
+            date = date.today()
+        )
+        db.session.add(comment)
+        db.session.commit()
+        return CommentSchema().dump(comment)
+    else:
+        return {'Error': f'Card not found with id {id}'}, 404
+    
+
 @cards_bp.route('/<int:id>/', methods = ['DELETE'])
+@jwt_required()
 def delete_one_card(id):
+    authorize()
+   
     stmt = db.select(Card).filter_by(id = id)
     card = db.session.scalar(stmt)
     if card:
@@ -51,6 +77,7 @@ def delete_one_card(id):
         return {'Error': f'Card not found with id {id}'}, 404
 
 @cards_bp.route('/', methods=['POST'])
+@jwt_required()
 def new_card():
     card = Card(
         title = request.json['title'],
@@ -58,9 +85,10 @@ def new_card():
         date = date.today(),
         status = request.json['status'],
         priority = request.json['priority'],
+        user_id = get_jwt_identity()
     )
     db.session.add(card)
     db.session.commit()
     #Respond to the user
-    return CardSchema().dump(card), 201
+    return CardSchema(exclude=['user']).dump(card), 201
     
